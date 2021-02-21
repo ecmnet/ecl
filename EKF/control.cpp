@@ -1000,16 +1000,16 @@ void Ekf::controlHeightFusion()
 			fuse_height = true;
 			setControlEVHeight();
 			resetHeight();
-			ECL_WARN("Switched to EV mode");
+			ECL_WARN("Height mode switched to ev");
 		}
 
-		// Fallback to Range data if available
+		// if no vision data is available fallback to range
 		if (_control_status.flags.ev_hgt && !isRecent(_time_last_ext_vision, 2 * EV_MAX_INTERVAL) && _range_sensor.isDataHealthy()) {
 			setControlRangeHeight();
 			fuse_height = true;
-			ECL_WARN("Switched to RANGE mode");
 
 			if (_control_status_prev.flags.rng_hgt != _control_status.flags.rng_hgt) {
+				ECL_INFO("Height mode switched to range finder");
 				// we have just switched to using range finder, calculate height sensor offset such that current
 				// measurement matches our current height estimate
 				// use the parameter rng_gnd_clearance if on ground to avoid a noisy offset initialization (e.g. sonar)

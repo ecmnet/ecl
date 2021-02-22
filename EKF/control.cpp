@@ -999,8 +999,10 @@ void Ekf::controlHeightFusion()
 		if (!_control_status.flags.ev_hgt && isRecent(_time_last_ext_vision, 2 * EV_MAX_INTERVAL)) {
 			fuse_height = true;
 			setControlEVHeight();
-			resetHeight();
-			ECL_WARN("Height mode switched to ev");
+			if (!_control_status_prev.flags.rng_hgt) {
+			 resetHeight();
+			}
+			ECL_INFO("Height mode switched to ev");
 		}
 
 		// if no vision data is available fallback to range

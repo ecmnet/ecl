@@ -142,7 +142,7 @@ void Ekf::controlFusionModes()
 	// in this case we need to empty the buffer
 	if (!_flow_data_ready || !_control_status.flags.opt_flow) {
 		_flow_data_ready = _flow_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_flow_sample_delayed)
-						   && (_R_to_earth(2, 2) > _params.range_cos_max_tilt);
+								   && (_R_to_earth(2, 2) > _params.range_cos_max_tilt);
 	}
 
 	// check if we should fuse flow data for terrain estimation
@@ -548,9 +548,9 @@ void Ekf::controlGpsFusion()
 			// We are relying on aiding to constrain drift so after a specified time
 			// with no aiding we need to do something
 			bool do_vel_pos_reset = isTimedOut(_time_last_hor_pos_fuse, _params.reset_timeout_max)
-							&& isTimedOut(_time_last_delpos_fuse, _params.reset_timeout_max)
-							&& isTimedOut(_time_last_hor_vel_fuse, _params.reset_timeout_max)
-							&& isTimedOut(_time_last_of_fuse, _params.reset_timeout_max);
+									&& isTimedOut(_time_last_delpos_fuse, _params.reset_timeout_max)
+									&& isTimedOut(_time_last_hor_vel_fuse, _params.reset_timeout_max)
+									&& isTimedOut(_time_last_of_fuse, _params.reset_timeout_max);
 
 			// We haven't had an absolute position fix for a longer time so need to do something
 			do_vel_pos_reset = do_vel_pos_reset || isTimedOut(_time_last_hor_pos_fuse, 2 * _params.reset_timeout_max);
@@ -999,19 +999,22 @@ void Ekf::controlHeightFusion()
 		if (!_control_status.flags.ev_hgt && isRecent(_time_last_ext_vision, 2 * EV_MAX_INTERVAL)) {
 			fuse_height = true;
 			setControlEVHeight();
+
 			if (!_control_status_prev.flags.rng_hgt) {
-			 resetHeight();
+				resetHeight();
+			} else if (_control_status_prev.flags.ev_hgt != _control_status.flags.ev_hgt) {
+				_hgt_sensor_offset = -_ev_sample_delayed.pos(2) + _state.pos(2);
+				ECL_INFO("Height mode switched to ev");
 			}
-			ECL_INFO("Height mode switched to ev");
 		}
 
 		// if no vision data is available fallback to range
-		if (_control_status.flags.ev_hgt && !isRecent(_time_last_ext_vision, 2 * EV_MAX_INTERVAL) && _range_sensor.isDataHealthy()) {
+		if (_control_status.flags.ev_hgt && !isRecent(_time_last_ext_vision,  2 * EV_MAX_INTERVAL) && _range_sensor.isDataHealthy()) {
 			setControlRangeHeight();
 			fuse_height = true;
 
 			if (_control_status_prev.flags.rng_hgt != _control_status.flags.rng_hgt) {
-				ECL_INFO("Height mode switched to range finder");
+
 				// we have just switched to using range finder, calculate height sensor offset such that current
 				// measurement matches our current height estimate
 				// use the parameter rng_gnd_clearance if on ground to avoid a noisy offset initialization (e.g. sonar)
@@ -1024,6 +1027,7 @@ void Ekf::controlHeightFusion()
 				} else {
 					_hgt_sensor_offset = _params.rng_gnd_clearance;
 				}
+				ECL_INFO("Height mode switched to range finder");
 			}
 		}
 

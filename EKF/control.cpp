@@ -142,7 +142,7 @@ void Ekf::controlFusionModes()
 	// in this case we need to empty the buffer
 	if (!_flow_data_ready || !_control_status.flags.opt_flow) {
 		_flow_data_ready = _flow_buffer.pop_first_older_than(_imu_sample_delayed.time_us, &_flow_sample_delayed)
-										   && (_R_to_earth(2, 2) > _params.range_cos_max_tilt);
+												   && (_R_to_earth(2, 2) > _params.range_cos_max_tilt);
 	}
 
 	// check if we should fuse flow data for terrain estimation
@@ -548,9 +548,9 @@ void Ekf::controlGpsFusion()
 			// We are relying on aiding to constrain drift so after a specified time
 			// with no aiding we need to do something
 			bool do_vel_pos_reset = isTimedOut(_time_last_hor_pos_fuse, _params.reset_timeout_max)
-											&& isTimedOut(_time_last_delpos_fuse, _params.reset_timeout_max)
-											&& isTimedOut(_time_last_hor_vel_fuse, _params.reset_timeout_max)
-											&& isTimedOut(_time_last_of_fuse, _params.reset_timeout_max);
+													&& isTimedOut(_time_last_delpos_fuse, _params.reset_timeout_max)
+													&& isTimedOut(_time_last_hor_vel_fuse, _params.reset_timeout_max)
+													&& isTimedOut(_time_last_of_fuse, _params.reset_timeout_max);
 
 			// We haven't had an absolute position fix for a longer time so need to do something
 			do_vel_pos_reset = do_vel_pos_reset || isTimedOut(_time_last_hor_pos_fuse, 2 * _params.reset_timeout_max);
@@ -896,6 +896,8 @@ void Ekf::controlHeightFusion()
 	checkRangeAidSuitability();
 	const bool do_range_aid = (_params.range_aid == 1) && isRangeAidSuitable();
 
+
+
 	bool fuse_height = false;
 
 	switch (_params.vdist_sensor_type) {
@@ -997,18 +999,30 @@ void Ekf::controlHeightFusion()
 
 
 		// don't start using EV data unless data is arriving frequently
-		if (!_control_status.flags.ev_hgt && isRecent(_time_last_ext_vision, 2 * EV_MAX_INTERVAL)) {
+		if (!_control_status.flags.ev_hgt && isRecent(_time_last_ext_vision, 2 * EV_MAX_INTERVAL) && _ev_data_ready) {
 			setControlEVHeight();
-			fuse_height = true;
-
 			if (!_control_status_prev.flags.rng_hgt) {
 				resetHeight();
 			}
 			if (_control_status_prev.flags.ev_hgt != _control_status.flags.ev_hgt) {
-				// init terrain estimator as HAGL drifts sometimes as soon as ev comes back
-				initHagl();
+				_hgt_sensor_offset = 0;//-_ev_sample_delayed.pos(2) + _state.pos(2);
+				const extVisionSample &ev_newest = _ext_vision_buffer.get_newest();
+
+				// use the most recent data if it's time offset from the fusion time horizon is smaller
+				const int32_t dt_newest = ev_newest.time_us - _imu_sample_delayed.time_us;
+				const int32_t dt_delayed = _ev_sample_delayed.time_us - _imu_sample_delayed.time_us;
+
+				if (std::abs(dt_newest) < std::abs(dt_delayed)) {
+					_state.pos(2) = ev_newest.pos(2);
+
+				} else {
+					_state.pos(2) = _ev_sample_delayed.pos(2);
+				}
+
 				ECL_INFO_TIMESTAMPED("Height mode switched to ev");
 			}
+
+			fuse_height = true;
 		}
 
 		// if no vision data is available fallback to range
@@ -1024,12 +1038,13 @@ void Ekf::controlHeightFusion()
 				if (_control_status.flags.in_air && isTerrainEstimateValid()) {
 					_hgt_sensor_offset = _terrain_vpos;
 
-				} else if (_control_status.flags.in_air) {
-					_hgt_sensor_offset = _range_sensor.getDistBottom() + _state.pos(2);
+				} else
+					if (_control_status.flags.in_air) {
+						_hgt_sensor_offset = _range_sensor.getDistBottom() + _state.pos(2);
 
-				} else {
-					_hgt_sensor_offset = _params.rng_gnd_clearance;
-				}
+					} else {
+						_hgt_sensor_offset = _params.rng_gnd_clearance;
+					}
 				ECL_INFO_TIMESTAMPED("Height mode switched to range finder");
 			}
 		}

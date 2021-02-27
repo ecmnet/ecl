@@ -419,7 +419,7 @@ bool Ekf::realignYawGPS()
 			// we have previously aligned yaw in-flight and have wind estimates so set the yaw such that the vehicle nose is
 			// aligned with the wind relative GPS velocity vector
 			yaw_new = atan2f((_gps_sample_delayed.vel(1) - _state.wind_vel(1)),
-						(_gps_sample_delayed.vel(0) - _state.wind_vel(0)));
+					(_gps_sample_delayed.vel(0) - _state.wind_vel(0)));
 
 		} else {
 			// we don't have wind estimates, so align yaw to the GPS velocity vector
@@ -504,8 +504,8 @@ bool Ekf::resetMagHeading(const Vector3f &mag_init, bool increase_yaw_var, bool 
 		} else {
 			// pitched more than rolled so use 312 rotation order
 			const Vector3f rotVec312(0.0f,  // yaw
-						 asinf(_R_to_earth(2, 1)),  // roll
-						 atan2f(-_R_to_earth(2, 0), _R_to_earth(2, 2)));  // pitch
+					asinf(_R_to_earth(2, 1)),  // roll
+					atan2f(-_R_to_earth(2, 0), _R_to_earth(2, 2)));  // pitch
 			R_to_earth = taitBryan312ToRotMat(rotVec312);
 
 		}
@@ -598,8 +598,8 @@ float Ekf::compensateBaroForDynamicPressure(const float baro_alt_uncompensated)
 	const Vector3f airspeed_body = R_to_body * airspeed_earth;
 
 	const Vector3f K_pstatic_coef(airspeed_body(0) >= 0.0f ? _params.static_pressure_coef_xp : _params.static_pressure_coef_xn,
-				      airspeed_body(1) >= 0.0f ? _params.static_pressure_coef_yp : _params.static_pressure_coef_yn,
-				      _params.static_pressure_coef_z);
+			airspeed_body(1) >= 0.0f ? _params.static_pressure_coef_yp : _params.static_pressure_coef_yn,
+					_params.static_pressure_coef_z);
 
 	const Vector3f airspeed_squared = matrix::min(airspeed_body.emult(airspeed_body), sq(_params.max_correction_airspeed));
 
@@ -878,7 +878,7 @@ Returns  following IMU vibration metrics in the following array locations
 0 : Gyro delta angle coning metric = filtered length of (delta_angle x prev_delta_angle)
 1 : Gyro high frequency vibe = filtered length of (delta_angle - prev_delta_angle)
 2 : Accel high frequency vibe = filtered length of (delta_velocity - prev_delta_velocity)
-*/
+ */
 Vector3f Ekf::getImuVibrationMetrics() const
 {
 	return _vibe_metrics;
@@ -891,7 +891,7 @@ Vector3f Ekf::getImuVibrationMetrics() const
 	2 : Filtered horizontal velocity (m/s)
 	Second argument returns true when IMU movement is blocking the drift calculation
 	Function returns true if the metrics have been updated and not returned previously by this function
-*/
+ */
 bool Ekf::get_gps_drift_metrics(float drift[3], bool *blocked)
 {
 	memcpy(drift, _gps_drift_metrics, 3 * sizeof(float));
@@ -981,7 +981,7 @@ vxy_max : Maximum ground relative horizontal speed (meters/sec). NaN when limiti
 vz_max : Maximum ground relative vertical speed (meters/sec). NaN when limiting is not needed.
 hagl_min : Minimum height above ground (meters). NaN when limiting is not needed.
 hagl_max : Maximum height above ground (meters). NaN when limiting is not needed.
-*/
+ */
 void Ekf::get_ekf_ctrl_limits(float *vxy_max, float *vz_max, float *hagl_min, float *hagl_max)
 {
 	// Calculate range finder limits
@@ -1066,7 +1066,19 @@ void Ekf::get_innovation_test_status(uint16_t &status, float &mag, float &vel, f
 	pos = math::max(sqrtf(_gps_pos_test_ratio(0)),sqrtf(_ev_pos_test_ratio(0)));
 
 	// return the vertical position innovation test ratio
-	hgt = sqrtf(_gps_pos_test_ratio(0));
+	if (_control_status.flags.baro_hgt) {
+		hgt = sqrtf(_baro_hgt_test_ratio(1));
+
+	} else if (_control_status.flags.gps_hgt) {
+		hgt = sqrtf(_gps_pos_test_ratio(1));
+
+	} else if (_control_status.flags.rng_hgt) {
+		hgt = sqrtf(_rng_hgt_test_ratio(1));
+
+	} else if (_control_status.flags.ev_hgt) {
+		hgt = sqrtf(_ev_pos_test_ratio(1));
+	}
+
 	// return the airspeed fusion innovation test ratio
 	tas = sqrtf(_tas_test_ratio);
 	// return the terrain height innovation test ratio
@@ -1128,13 +1140,13 @@ bool Ekf::global_position_is_valid()
 void Ekf::update_deadreckoning_status()
 {
 	const bool velPosAiding = (_control_status.flags.gps || _control_status.flags.ev_pos || _control_status.flags.ev_vel)
-				&& (isRecent(_time_last_hor_pos_fuse, _params.no_aid_timeout_max)
-				|| isRecent(_time_last_hor_vel_fuse, _params.no_aid_timeout_max)
-				|| isRecent(_time_last_delpos_fuse, _params.no_aid_timeout_max));
+						&& (isRecent(_time_last_hor_pos_fuse, _params.no_aid_timeout_max)
+								|| isRecent(_time_last_hor_vel_fuse, _params.no_aid_timeout_max)
+								|| isRecent(_time_last_delpos_fuse, _params.no_aid_timeout_max));
 	const bool optFlowAiding = _control_status.flags.opt_flow && isRecent(_time_last_of_fuse, _params.no_aid_timeout_max);
 	const bool airDataAiding = _control_status.flags.wind &&
-				   isRecent(_time_last_arsp_fuse, _params.no_aid_timeout_max) &&
-				   isRecent(_time_last_beta_fuse, _params.no_aid_timeout_max);
+			isRecent(_time_last_arsp_fuse, _params.no_aid_timeout_max) &&
+			isRecent(_time_last_beta_fuse, _params.no_aid_timeout_max);
 
 	_is_wind_dead_reckoning = !velPosAiding && !optFlowAiding && airDataAiding;
 	_is_dead_reckoning = !velPosAiding && !optFlowAiding && !airDataAiding;
@@ -1402,7 +1414,7 @@ void Ekf::updateBaroHgtOffset()
 
 		// apply a 10 second first order low pass filter to baro offset
 		const float offset_rate_correction =  0.1f * (_baro_sample_delayed.hgt + _state.pos(2) -
-								_baro_hgt_offset);
+				_baro_hgt_offset);
 		_baro_hgt_offset += local_time_step * math::constrain(offset_rate_correction, -0.1f, 0.1f);
 	}
 }
@@ -1416,18 +1428,18 @@ Vector3f Ekf::getVisionVelocityInEkfFrame() const
 
 	// rotate measurement into correct earth frame if required
 	switch(_ev_sample_delayed.vel_frame) {
-		case BODY_FRAME_FRD:
-			vel = _R_to_earth * (_ev_sample_delayed.vel - vel_offset_body);
-			break;
-		case LOCAL_FRAME_FRD:
-			const Vector3f vel_offset_earth = _R_to_earth * vel_offset_body;
-			if (_params.fusion_mode & MASK_ROTATE_EV)
-			{
-				vel = _R_ev_to_ekf *_ev_sample_delayed.vel - vel_offset_earth;
-			} else {
-				vel = _ev_sample_delayed.vel - vel_offset_earth;
-			}
-			break;
+	case BODY_FRAME_FRD:
+		vel = _R_to_earth * (_ev_sample_delayed.vel - vel_offset_body);
+		break;
+	case LOCAL_FRAME_FRD:
+		const Vector3f vel_offset_earth = _R_to_earth * vel_offset_body;
+		if (_params.fusion_mode & MASK_ROTATE_EV)
+		{
+			vel = _R_ev_to_ekf *_ev_sample_delayed.vel - vel_offset_earth;
+		} else {
+			vel = _ev_sample_delayed.vel - vel_offset_earth;
+		}
+		break;
 	}
 	return vel;
 }
@@ -1438,16 +1450,16 @@ Vector3f Ekf::getVisionVelocityVarianceInEkfFrame() const
 
 	// rotate measurement into correct earth frame if required
 	switch(_ev_sample_delayed.vel_frame) {
-		case BODY_FRAME_FRD:
-			ev_vel_cov = _R_to_earth * ev_vel_cov * _R_to_earth.transpose();
-			break;
+	case BODY_FRAME_FRD:
+		ev_vel_cov = _R_to_earth * ev_vel_cov * _R_to_earth.transpose();
+		break;
 
-		case LOCAL_FRAME_FRD:
-			if(_params.fusion_mode & MASK_ROTATE_EV)
-			{
-				ev_vel_cov = _R_ev_to_ekf * ev_vel_cov * _R_ev_to_ekf.transpose();
-			}
-			break;
+	case LOCAL_FRAME_FRD:
+		if(_params.fusion_mode & MASK_ROTATE_EV)
+		{
+			ev_vel_cov = _R_ev_to_ekf * ev_vel_cov * _R_ev_to_ekf.transpose();
+		}
+		break;
 	}
 	return ev_vel_cov.diag();
 }
@@ -1678,8 +1690,8 @@ void Ekf::resetQuatStateYaw(float yaw, float yaw_variance, bool update_buffer)
 		// We use a 312 sequence as an alternate when there is more pitch tilt than roll tilt
 		// to avoid gimbal lock
 		const Vector3f rot312(yaw,
-				      asinf(_R_to_earth(2, 1)),
-				      atan2f(-_R_to_earth(2, 0), _R_to_earth(2, 2)));
+				asinf(_R_to_earth(2, 1)),
+				atan2f(-_R_to_earth(2, 0), _R_to_earth(2, 2)));
 		_R_to_earth = taitBryan312ToRotMat(rot312);
 
 	}
@@ -1781,7 +1793,7 @@ void Ekf::runYawEKFGSF()
 
 	// basic sanity check on GPS velocity data
 	if (_gps_data_ready && _gps_sample_delayed.vacc > FLT_EPSILON &&
-	    ISFINITE(_gps_sample_delayed.vel(0)) && ISFINITE(_gps_sample_delayed.vel(1))) {
+			ISFINITE(_gps_sample_delayed.vel(0)) && ISFINITE(_gps_sample_delayed.vel(1))) {
 		yawEstimator.setVelocity(_gps_sample_delayed.vel.xy(), _gps_sample_delayed.vacc);
 	}
 }
